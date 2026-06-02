@@ -1,0 +1,3 @@
+#!/bin/bash
+FOLDER=$(basename "$PWD")
+claude -n "$FOLDER" --remote-control-session-name-prefix "$FOLDER"

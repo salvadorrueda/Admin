@@ -1,0 +1,34 @@
+Funcionalitat de claudia/claudia
+=================================
+
+El fitxer "claudia/claudia" és un script de Bash que serveix per llançar
+Claude Code (la comanda `claude`) associant-lo automàticament al nom de la
+carpeta actual.
+
+Contingut del script:
+
+    #!/bin/bash
+    FOLDER=$(basename "$PWD")
+    claude -n "$FOLDER" --remote-control-session-name-prefix "$FOLDER"
+
+Explicació línia per línia:
+
+1. #!/bin/bash
+   Indica que el script s'ha d'executar amb l'intèrpret Bash.
+
+2. FOLDER=$(basename "$PWD")
+   Obté el nom de la carpeta actual (sense la ruta completa) i el desa a la
+   variable FOLDER. Per exemple, si estàs a "/home/salvadorrueda/Admin",
+   la variable FOLDER valdrà "Admin".
+
+3. claude -n "$FOLDER" --remote-control-session-name-prefix "$FOLDER"
+   Executa Claude Code:
+   - "-n $FOLDER": dóna un nom a la sessió fent servir el nom de la carpeta.
+   - "--remote-control-session-name-prefix $FOLDER": afegeix el nom de la
+     carpeta com a prefix del nom de la sessió de control remot.
+
+Resum:
+El propòsit d'aquest script és arrencar Claude Code de manera que la sessió
+quedi identificada automàticament amb el nom del directori on et trobes,
+facilitant així reconèixer i controlar diferents sessions segons el projecte
+o carpeta de treball.
