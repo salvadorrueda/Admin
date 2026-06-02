@@ -1,0 +1,100 @@
+================================================================
+ PLA DE CREACIÓ DE L'SCRIPT bk.sh
+================================================================
+
+1. OBJECTIU
+-----------
+Crear un script de còpia de seguretat (bk.sh) que copiï els fitxers
+i carpetes passats com a paràmetre cap a /bk/<hostname>, replicant
+la ruta absoluta de l'origen.
+
+En aquesta màquina el hostname és "u01", per tant la base és /bk/u01.
+
+Exemple:
+  - Hi ha un fitxer a /home/salvadorrueda/test.txt
+  - S'executa:  bk test.txt   (des de /home/salvadorrueda)
+  - Resultat:   /bk/u01/home/salvadorrueda/test.txt
+
+
+2. COMPORTAMENT
+---------------
+- Accepta un o més fitxers/carpetes com a arguments:
+      bk <ruta1> [ruta2 ...]
+- Per a cada argument resol la seva ruta ABSOLUTA i la replica
+  sota /bk/$(hostname).
+- Les carpetes es copien recursivament.
+- Es fa servir rsync -a (sincronització): en còpies repetides només
+  es transfereixen els canvis i es preserven permisos, propietaris i dates.
+- Si un argument no existeix, s'avisa i s'omet (no atura tot el procés).
+
+
+3. LÒGICA CLAU (esborrany de l'script)
+--------------------------------------
+#!/usr/bin/env bash
+set -euo pipefail
+
+BK_BASE="/bk/$(hostname)"
+
+# Comprova que hi hagi almenys un argument
+[ $# -ge 1 ] || { echo "Ús: bk <fitxer|carpeta> [més...]" >&2; exit 1; }
+
+# Determina si cal sudo per crear/escriure a /bk
+SUDO=""
+if [ ! -d /bk ] || [ ! -w /bk ]; then
+  SUDO="sudo"
+  echo "Nota: cal sudo per crear/escriure a /bk" >&2
+fi
+
+for src in "$@"; do
+  if [ ! -e "$src" ]; then
+    echo "Avís: '$src' no existeix, s'omet." >&2
+    continue
+  fi
+  abs="$(realpath "$src")"        # ruta absoluta de l'origen
+  dest="$BK_BASE$abs"             # p.ex. /bk/u01/home/salvadorrueda/test.txt
+  $SUDO mkdir -p "$(dirname "$dest")"
+  $SUDO rsync -a "$abs" "$dest"
+  echo "Copiat: $abs -> $dest"
+done
+
+
+4. PUNTS A TENIR EN COMPTE
+--------------------------
+- HOSTNAME: l'ordre `hostname` retorna el nom curt ("u01"), que és el
+  que volem per construir /bk/u01.
+
+- RUTA ABSOLUTA: `realpath` converteix "test.txt" en
+  "/home/salvadorrueda/test.txt" tenint en compte el directori actual.
+
+- CONSTRUCCIÓ DEL DESTÍ: concatenar BK_BASE + ruta absoluta
+  ("$BK_BASE$abs") reprodueix tot l'arbre de directoris a sota de /bk/u01.
+
+- RSYNC AMB CARPETES: cal passar la ruta d'origen SENSE barra final
+  (rsync -a "$abs" "$dest") perquè es copiï la carpeta sencera i no
+  només el seu contingut. Així "dest" passa a ser la pròpia carpeta.
+
+- PERMISOS: /bk penja de l'arrel (/), de manera que normalment cal sudo
+  per crear-lo i per escriure-hi. L'script ho detecta automàticament i
+  fa servir sudo per a mkdir i rsync quan és necessari.
+
+- ESPAIS EN ELS NOMS: totes les variables s'escriuen entre cometes
+  ("$src", "$abs", "$dest") per suportar noms amb espais.
+
+
+5. INSTAL·LACIÓ SUGGERIDA
+-------------------------
+1) Desar l'script com a bk.sh.
+2) Donar-li permisos d'execució:
+       chmod +x bk.sh
+3) Per poder invocar-lo simplement com "bk", crear un enllaç simbòlic
+   en un directori del PATH:
+       sudo ln -s /ruta/completa/bk.sh /usr/local/bin/bk
+
+
+6. PROVA RÀPIDA
+---------------
+   echo "hola" > ~/test.txt
+   bk test.txt
+   ls -l /bk/u01/home/salvadorrueda/test.txt   # ha d'existir
+
+================================================================
