@@ -37,15 +37,17 @@ if [ $# -lt 1 ]; then
   exit 1
 fi
 
-# Executa la comanda, o la mostra si estem en mode --dry-run
+# Mostra la comanda i, si no estem en --dry-run, l'executa
 run() {
   if [ "$DRY_RUN" -eq 1 ]; then
     printf '[dry-run]'
-    printf ' %q' "$@"
-    printf '\n'
   else
-    "$@"
+    printf '+'
   fi
+  printf ' %q' "$@"
+  printf '\n'
+
+  [ "$DRY_RUN" -eq 1 ] || "$@"
 }
 
 # Determina si cal sudo per crear/escriure a /bk
