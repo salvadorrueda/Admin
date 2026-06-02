@@ -8,17 +8,45 @@
 #   Exemple:  bk test.txt   (des de /home/salvadorrueda)
 #   Resultat: /bk/u01/home/salvadorrueda/test.txt   (si hostname és "u01")
 #
-# Ús: bk <fitxer|carpeta> [més fitxers/carpetes...]
+# Ús: bk [--dry-run] <fitxer|carpeta> [més fitxers/carpetes...]
+#   --dry-run, -n   Mostra les comandes que s'executarien, sense fer res.
 
 set -euo pipefail
 
 BK_BASE="/bk/$(hostname)"
+DRY_RUN=0
+
+usage() {
+  echo "Ús: $(basename "$0") [--dry-run] <fitxer|carpeta> [més...]" >&2
+}
+
+# Separa les opcions dels arguments posicionals
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    -n|--dry-run) DRY_RUN=1 ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            args+=("$arg") ;;
+  esac
+done
+set -- ${args[@]+"${args[@]}"}
 
 # Cal almenys un argument
 if [ $# -lt 1 ]; then
-  echo "Ús: $(basename "$0") <fitxer|carpeta> [més...]" >&2
+  usage
   exit 1
 fi
+
+# Executa la comanda, o la mostra si estem en mode --dry-run
+run() {
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf '[dry-run]'
+    printf ' %q' "$@"
+    printf '\n'
+  else
+    "$@"
+  fi
+}
 
 # Determina si cal sudo per crear/escriure a /bk
 SUDO=""
@@ -35,8 +63,15 @@ for src in "$@"; do
 
   abs="$(realpath "$src")"        # ruta absoluta de l'origen
   dest="$BK_BASE$abs"             # p.ex. /bk/u01/home/salvadorrueda/test.txt
+  destdir="$(dirname "$dest")"
 
-  $SUDO mkdir -p "$(dirname "$dest")"
-  $SUDO rsync -a "$abs" "$dest"
-  echo "Copiat: $abs -> $dest"
+  if [ -n "$SUDO" ]; then
+    run sudo mkdir -p "$destdir"
+    run sudo rsync -a "$abs" "$dest"
+  else
+    run mkdir -p "$destdir"
+    run rsync -a "$abs" "$dest"
+  fi
+
+  [ "$DRY_RUN" -eq 1 ] || echo "Copiat: $abs -> $dest"
 done
