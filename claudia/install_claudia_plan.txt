@@ -1,0 +1,97 @@
+PLA: Script d'instal·lació per a `claudia`
+==========================================
+
+CONTEXT
+-------
+`claudia` és un petit llançador de Claude Code (claudia/claudia) que arrenca
+`claude` amb el nom de la carpeta actual com a nom de sessió i prefix de
+control remot. Actualment cal copiar-lo a mà a ~/.local/bin.
+
+L'usuari vol un SCRIPT D'INSTAL·LACIÓ que automatitzi el procés en qualsevol
+màquina:
+  1. Comprovar si `claude` està instal·lat i, si no, instal·lar-lo amb
+     l'instal·lador oficial:  curl -fsSL https://claude.ai/install.sh | bash
+  2. Descarregar el codi de `claudia` directament del repositori GitHub
+     (salvadorrueda/Admin, branca main) — no symlink, no dependència del repo
+     clonat localment.
+  3. Deixar-lo executable a ~/.local/bin/claudia perquè es pugui invocar des de
+     qualsevol terminal.
+
+Dades verificades:
+  - Repo públic, branca per defecte `main`.
+  - URL raw del script:
+      https://raw.githubusercontent.com/salvadorrueda/Admin/main/claudia/claudia
+  - ~/.local/bin ja sol estar al $PATH (cal comprovar-ho i avisar si no hi és).
+
+
+FITXER A CREAR
+--------------
+/home/salvadorrueda/Admin/claudia/install_claudia.sh  (executable)
+
+Pensat per poder-se executar de dues maneres:
+  - Localment:  bash claudia/install_claudia.sh
+  - Remotament (one-liner):
+      curl -fsSL https://raw.githubusercontent.com/salvadorrueda/Admin/main/claudia/install_claudia.sh | bash
+
+
+DISSENY DE L'SCRIPT
+-------------------
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  REPO_RAW="https://raw.githubusercontent.com/salvadorrueda/Admin/main"
+  CLAUDIA_SRC="$REPO_RAW/claudia/claudia"
+  BIN_DIR="$HOME/.local/bin"
+  DEST="$BIN_DIR/claudia"
+
+Passos:
+
+  1. Comprovar/instal·lar `claude`
+     - if command -v claude >/dev/null 2>&1; then  -> mostra versió i salta.
+     - else  -> curl -fsSL https://claude.ai/install.sh | bash
+     - Tornar a comprovar command -v claude; si segueix faltant, sortir amb
+       error explicant que cal reiniciar la terminal o revisar el PATH.
+
+  2. Assegurar ~/.local/bin
+     - mkdir -p "$BIN_DIR"
+
+  3. Descarregar `claudia` del repo
+     - curl -fsSL "$CLAUDIA_SRC" -o fitxer_temporal + mv  (atòmic; no deixa un
+       fitxer a mitges si falla la descàrrega).
+     - chmod +x "$DEST"
+
+  4. Comprovar el $PATH
+     - Si :$PATH: no conté :$BIN_DIR:, avisar l'usuari i afegir
+       export PATH="$HOME/.local/bin:$PATH" al fitxer de perfil adient
+       (~/.bashrc o ~/.zshrc segons $SHELL), indicant que cal reiniciar la
+       terminal o fer source.
+     - Si ja hi és, no tocar res.
+
+  5. Missatge final
+     - Confirmar instal·lació i mostrar com usar-lo: entrar en una carpeta i
+       executar `claudia`.
+
+Consideracions:
+  - set -euo pipefail per fallar net davant errors de xarxa.
+  - Comprovar que `curl` existeix abans de res (fallback amb missatge clar).
+  - Idempotent: tornar a executar-lo reescriu `claudia` amb l'última versió del
+    repo (és, de fet, la via d'actualització).
+
+
+VERIFICACIÓ
+-----------
+  1. bash -n claudia/install_claudia.sh   — comprovació de sintaxi.
+  2. Executar bash claudia/install_claudia.sh a la màquina actual:
+       - Ha de detectar que `claude` ja hi és (v2.1.160) i no reinstal·lar-lo.
+       - Ha de (re)descarregar `claudia` del repo a ~/.local/bin/claudia.
+       - diff <(curl -fsSL "$CLAUDIA_SRC") ~/.local/bin/claudia  -> idèntics.
+       - command -v claudia  -> ~/.local/bin/claudia.
+  3. Provar `claudia` en una carpeta qualsevol per confirmar que arrenca Claude
+     Code amb el nom de la carpeta.
+
+
+PENDENT (fora d'abast d'aquest pla)
+-----------------------------------
+L'script s'ha de pujar al repo GitHub (claudia/install_claudia.sh) perquè el one-liner
+remot funcioni. Es crearà localment; el commit/push el farà l'usuari o es pot
+fer en un pas posterior si ho demana.
